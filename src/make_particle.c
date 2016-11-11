@@ -26,6 +26,7 @@
 #include "timing.h"
 #include "types.h"
 #include "vars.h"
+#include "ncformat.h"
 // 3rd party headers
 #include "mt19937ar.h"
 // system headers
@@ -94,6 +95,9 @@ static FILE * restrict dipfile; // handle of dipole file
 static enum shform read_format; // format of dipole file, which is read
 static double cX,cY,cZ;         // center for DipoleCoord, it is sometimes used in PlaceGranules
 
+/* netCDF4 */
+extern int g_ncid; 	 // netCDF format file handle
+
 #ifndef SPARSE
 
 // shape parameters
@@ -137,6 +141,29 @@ static unsigned short * restrict position_tmp;
 
 #endif // !SPARSE
 
+int IsHDF5file(const char * restrict fname,ERR_LOC_DECL)
+// checks if a file has HDF5 signature
+{
+const unsigned char HDF5header[]={0x89,0x48,0x44,0x46,0x0d,0x0a,0x1a,0x0a};
+//const char HDF5header[]="\211HDF\r\n\032\n"; // see HDF5 file spec 3.0
+char buf[8];
+FILE * fd;
+
+    fd=FOpenErr(fname,"r",ONE_POS);
+
+    if (fread(buf,1,8,fd)!=8) {
+        LogError(ERR_LOC_CALL,"Could not read 8 bytes from file '%s'",fname);
+    }
+
+    FCloseErr(fd,fname,ONE_POS);
+
+    if (strncmp((const char*)HDF5header,buf,8)==0) {
+        return EXIT_SUCCESS;
+    }
+
+    return EXIT_FAILURE;
+}
+
 #ifndef SPARSE //much of the functionality here is disabled in sparse mode
 
 // EXTERNAL FUNCTIONS
@@ -171,11 +198,26 @@ static void SaveGeometry(void)
 			case SF_TEXT_EXT: ext="geom"; break;
 			case SF_DDSCAT6:
 			case SF_DDSCAT7: ext="dat"; break;
+			case SF_NETCDF4: ext="nc"; break;
 			default: LogError(ONE_POS,"Unknown format for saved geometry file (%d)",(int)sg_format);
 				// no break
 		}
 		save_geom_fname=dyn_sprintf("%s.%s",shapename,ext);
 	}
+
+	SnprintfErr(ALL_POS,fname,MAX_FNAME,"%s/%s",directory,save_geom_fname);
+
+#ifdef NETCDF4
+	if (sg_format==SF_NETCDF4)
+	{
+		ncSaveGeometry(save_geom_fname /* position, material */);
+
+		if (IFROOT) printf("Geometry saved to file\n");
+		Timing_FileIO+=GET_TIME()-tstart;
+		return; // done, quit early
+	}
+#endif
+
 	// automatically change format if needed
 	if (sg_format==SF_TEXT && Nmat>1) sg_format=SF_TEXT_EXT;
 	// choose filename
@@ -208,6 +250,7 @@ static void SaveGeometry(void)
 					"(IX=IY=IZ=0)\n",(1-boxX)/2.0,(1-boxY)/2.0,(1-boxZ)/2.0);
 				fprintf(geom,"JA  IX  IY  IZ ICOMP(x,y,z)\n");
 				break;
+            case SF_NETCDF4: break; // we should never reach this
 		}
 #ifdef PARALLEL
 	} // end of if
@@ -228,6 +271,7 @@ static void SaveGeometry(void)
 				fprintf(geom,ddscat_format_write,i+local_nvoid_d0+1,position[j],position[j+1],position[j+2],mat,mat,
 					mat);
 				break;
+				case SF_NETCDF4: break; // we should never reach this
 		}
 	}
 	FCloseErr(geom,fname,ALL_POS);
@@ -1043,6 +1087,33 @@ static void InitDipFile(const char * restrict fname,int *bX,int *bY,int *bZ,int 
 	const char *rf_text;
 
 	TIME_TYPE tstart=GET_TIME();
+
+    /* netCDF */
+	if (IsHDF5file(fname,ONE_POS)==EXIT_SUCCESS) {
+#ifdef NETCDF4
+	int ncid;
+	ncid=ncFOpenErr(fname, NC_NOWRITE, ALL_POS);
+
+	if( ncid != NC_NOERR)
+	{
+        //if (ncInitDipFile(ncid,bX,bY,bZ,Nm)==EXIT_SUCCESS) {
+	    ncInitDipFile(ncid,bX,bY,bZ,Nm);
+            read_format=SF_NETCDF4;
+            *rft="Adda NetCDF format";
+
+            printf("Done with ncInitDipFile\n");
+            // nvoid_Ndip is set inside ncInitDipFile
+            Timing_FileIO+=GET_TIME()-tstart;
+            return; // everything is done exit early
+        }
+        else {
+             LogError(ONE_POS,"Loading scatter geometry file %s failed.",fname);
+        }
+#else
+        LogError(ONE_POS,"Cannot load file %s. ADDA has been compiled without NetCDF support.",fname);
+#endif // NETCDF4
+    }
+
 	dipfile=FOpenErr(fname,"r",ALL_POS);
 
 	// detect file format
@@ -1147,6 +1218,7 @@ static void InitDipFile(const char * restrict fname,int *bX,int *bY,int *bZ,int 
 					anis_warned=true;
 				}
 				break;
+			case SF_NETCDF4: break; // we should never reach this
 		}
 		/* TO ADD NEW FORMAT OF SHAPE FILE
 		 * Add code to scan a single data line and perform consistency checks if necessary. The common variables to be
@@ -1190,7 +1262,11 @@ static void InitDipFile(const char * restrict fname,int *bX,int *bY,int *bZ,int 
 			if (nd!=ds_Ndip) LogWarning(EC_WARN,ONE_POS,"Number of dipoles (%.0f), as given in the beginning of %s, is "
 				"not equal to the number of data lines actually present and scanned (%zu)",ds_Ndip,fname,nd);
 			break;
+        case SF_NETCDF4: break; // nothing to do here.
 	}
+
+	// VARPRINTF(nd);
+
 	nvoid_Ndip=nd*jagged*jagged*jagged;
 	/* TO ADD NEW FORMAT OF SHAPE FILE
 	 * If any consistency checks for the whole file can be performed, add them as a new case above.
@@ -1204,6 +1280,23 @@ static void InitDipFile(const char * restrict fname,int *bX,int *bY,int *bZ,int 
 	/* return to first data line for ReadDipFile; not optimal way, but works more robustly when non-system EOL is used
 	 * in data file
 	 */
+
+    /*
+	 VARPRINTF( *bX);
+	 VARPRINTF( *bY);
+	 VARPRINTF( *bZ);
+	 VARPRINTF( *Nm);
+	 VARPRINTF( nd );
+	 VARPRINTF( nvoid_Ndip);
+     VARPRINTF( maxX );
+     VARPRINTF( maxY );
+     VARPRINTF( maxZ );
+     VARPRINTF( minX );
+     VARPRINTF( minY );
+     VARPRINTF( minZ );
+     */
+
+
 	fseek(dipfile,0,SEEK_SET);
 	SkipNLines(dipfile,skiplines);
 	Timing_FileIO+=GET_TIME()-tstart;
@@ -1220,6 +1313,7 @@ static void ReadDipFile(const char * restrict fname)
  * the loop in MakeParticle() is skipped altogether.
  */
 {
+    	int debugMaterial=0; 
 	int x,y,z,x0,y0,z0,mat,scanned;
 	size_t index=0,line=0;
 	char linebuf[BUF_LINE];	
@@ -1229,7 +1323,45 @@ static void ReadDipFile(const char * restrict fname)
 #endif // !SPARSE
 
 	TIME_TYPE tstart=GET_TIME();
-	
+	/*
+	  VARPRINTF(local_z0);
+	  VARPRINTF(local_z1_coer);
+	  VARPRINTF(local_Ndip);
+	  VARPRINTF(boxXY);
+	*/
+
+#ifdef NETCDF4
+    if (read_format==SF_NETCDF4)
+    {
+#ifndef SPARSE
+	unsigned short position_full_dummy=0;
+	ncReadDipFile(material_tmp, &position_full_dummy);
+#else
+	#error Not finished
+	ncReadDipFile(fname, material_tmp, position_full);
+#endif 
+        return; 
+    }
+#endif // NETCDF4 
+
+    	if (debugMaterial) {
+    	for ( z=0; z<boxZ;z++) {
+        printf("z=%u\n", z);
+        if ( z>=local_z0 && z<local_z1_coer) {
+            for ( x=0;x<boxX;x++) {
+                for ( y=0;y<boxY;y++) {
+                    index=(z-local_z0)*boxXY+y*boxX_l+x;
+                    printf("%u ", material_tmp[index] );
+                    // printf("p(%u,%u,%u) ",position_tmp[index*3],  position_tmp[index*3+1],position_tmp[index*3+2]);
+                    // printf( "v %u %u %u \n",position_tmp[index*3],  position_tmp[index*3+1],position_tmp[index*3+2]);
+                }
+                printf("\n");
+            }
+            printf("\n");
+        }
+    	}
+   	} // if debugmat
+
 	mat=1; // the default value for single-domain shape formats
 	scanned=0; // redundant initialization to remove warnings
 	while(fgets(linebuf,BUF_LINE,dipfile)!=NULL) {
@@ -1239,6 +1371,7 @@ static void ReadDipFile(const char * restrict fname)
 			case SF_TEXT_EXT: scanned=sscanf(linebuf,geom_format_ext,&x0,&y0,&z0,&mat); break;
 			case SF_DDSCAT6:
 			case SF_DDSCAT7: scanned=sscanf(linebuf,ddscat_format_read2,&x0,&y0,&z0,&mat); break;
+			case SF_NETCDF4: break;
 		}
 		/* TO ADD NEW FORMAT OF SHAPE FILE
 		 * Add code to scan a single data line. The common variables to be scanned are 'x0','y0','z0' (integer positions
@@ -1252,11 +1385,23 @@ static void ReadDipFile(const char * restrict fname)
 			x0-=minX;
 			y0-=minY;
 			z0-=minZ;
+
+			/*
+			VARPRINTF(minX);
+			VARPRINTF(minY);
+			VARPRINTF(minZ);
+            		VARPRINTF(boxX);
+			VARPRINTF(boxY);
+			VARPRINTF(boxZ);
+			*/
+
 			// initialize box jagged*jagged*jagged instead of one dipole
 #ifndef SPARSE
 			for (z=jagged*z0;z<jagged*(z0+1);z++) if (z>=local_z0 && z<local_z1_coer)
 				for (x=jagged*x0;x<jagged*(x0+1);x++) for (y=jagged*y0;y<jagged*(y0+1);y++) {
 					index=(z-local_z0)*boxXY+y*boxX_l+x;
+
+					// printf("(%zu,%zu,%zu)=[%zu] \n",x,y,z,index);
 					if (material_tmp[index]!=Nmat)
 						LogError(ONE_POS,"Duplicate dipole was found at line %zu in dipole file %s",line,fname);
 					material_tmp[index]=(unsigned char)(mat-1);
@@ -1271,9 +1416,28 @@ static void ReadDipFile(const char * restrict fname)
 				}
 				index++;
 			}
-#endif // SPARSE
+#endif
 		}
-	}
+	} // while getlines 
+
+	if(debugMaterial) {
+    	for ( z=0; z<boxZ;z++) {
+        printf("z=%u\n", z);
+        if (z>=local_z0 && z<local_z1_coer) {
+            for ( x=0;x<boxX;x++) {
+                for ( y=0;y<boxY;y++) {
+                    index=(z-local_z0)*boxXY+y*boxX_l+x;
+                    printf("%u ", material_tmp[index] );
+                    // printf("p(%u,%u,%u) ",position_tmp[index*3],  position_tmp[index*3+1],position_tmp[index*3+2]);
+                    // printf( "v %u %u %u \n",position_tmp[index*3],  position_tmp[index*3+1],position_tmp[index*3+2]);
+                }
+                printf("\n");
+            }
+            printf("\n");
+        }
+    	} 
+	} // if debug
+
 	FCloseErr(dipfile,fname,ALL_POS);
 	Timing_FileIO+=GET_TIME()-tstart;
 }

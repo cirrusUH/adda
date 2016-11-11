@@ -86,7 +86,7 @@ ifneq ($(if $(MAKECMDGOALS),$(if $(filter $(NONTRIVIAL),$(MAKECMDGOALS)),1,),1),
 # are uncommented below are appended to the list specified elsewhere. Full list of possible options is the following:
 VALID_OPTS := DEBUG DEBUGFULL FFT_TEMPERTON PRECISE_TIMING NOT_USE_LOCK ONLY_LOCKFILE NO_FORTRAN NO_CPP \
               OVERRIDE_STDC_TEST OCL_READ_SOURCE_RUNTIME CLFFT_APPLE SPARSE USE_SSE3 OCL_BLAS NO_SVNREV \
-              ACCIMEXP
+              ACCIMEXP NETCDF4
 # Debug mode. By default, release configuration is used (no debug, no warnings, maximum optimization). DEBUG turns on
 # producing debugging symbols (-g) and warnings and brings optimization down to O2 (this is required to produce all
 # possible warnings by the compiler). DEBUGFULL turns off optimization completely (for more accurate debugging symbols)
@@ -96,7 +96,13 @@ VALID_OPTS := DEBUG DEBUGFULL FFT_TEMPERTON PRECISE_TIMING NOT_USE_LOCK ONLY_LOC
 #override OPTIONS += SPARSE ACCIMEXP
 #USE_SSE3
 
-# Temperton FFT (fft.h).
+# netCDF (ncformat.h)
+# NetCDF file support, scatterer geometries r/w
+
+#OPTIONS += NETCDF4 DEBUG
+NETCDF4_INC_PATH := /opt/netcdf-4.4.1-parallel/include/
+NETCDF4_LIB_PATH := /opt/netcdf-4.4.1-parallel/lib/
+
 #override OPTIONS += FFT_TEMPERTON
 
 # Precise timing (prec_timing.h).
@@ -328,6 +334,18 @@ endif
 ifneq ($(filter ACCIMEXP,$(OPTIONS)),)
   CDEFS += -DACCIMEXP
   $(info Using accelerated imExp with precomputed tables)
+endif
+ifneq ($(filter NETCDF4,$(OPTIONS)),)
+  CDEFS += -DNETCDF4
+  CSOURCE += ncformat.c
+  $(info Using netCDF)
+    LDLIBS += -lnetcdf
+    ifdef NETCDF4_INC_PATH
+      CFLAGS += -I$(NETCDF4_INC_PATH)
+    endif
+    ifdef NETCDF4_LIB_PATH
+      LDFLAGS += -L$(NETCDF4_LIB_PATH)
+    endif
 endif
 # Process EXTRA_FLAGS
 ifneq ($(strip $(EXTRA_FLAGS)),)

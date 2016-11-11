@@ -229,7 +229,9 @@ enum refl { // how to calculate interaction of dipoles through the nearby surfac
 	 * add an identifier starting with 'GR_' and a descriptive comment to this list in the alphabetical order.
 	 */
 };// in alphabetical order
-
+enum netcdf4 {
+	NETCDF4_CF  // adding CF information to output
+};
 // ldr constants
 #define LDR_B1  1.8915316
 #define LDR_B2 -0.1648469
@@ -396,7 +398,8 @@ enum shform {
 	SF_DDSCAT6,  // DDSCAT 6 format (FRMFIL), produced by calltarget
 	SF_DDSCAT7,  // DDSCAT 7 format (FRMFIL), produced by calltarget
 	SF_TEXT,     // ADDA text format for one-domain particles
-	SF_TEXT_EXT  // ADDA text format for multi-domain particles
+	SF_TEXT_EXT,  // ADDA text format for multi-domain particles
+	SF_NETCDF4   // netCDF4 based format multi-domain particles
 	/* TO ADD NEW FORMAT OF SHAPE FILE
 	 * add an identifier starting with 'SF_' and a descriptive comment to this list in alphabetical order.
 	 */

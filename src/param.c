@@ -163,6 +163,9 @@ double a_eq;                     // volume-equivalent radius of the particle
 enum shform sg_format;           // format for saving geometry files
 bool store_grans;                // whether to save granule positions to file
 
+// netcdf controls
+bool netcdf4_addCFheader;        // whether CF information is added to output netcdf4 files
+
 // LOCAL VARIABLES
 
 #define GFORM_RI_DIRNAME "%.4g" // format for refractive index in directory name
@@ -308,6 +311,16 @@ static const struct subopt_struct shape_opt[]={
 	 */
 	{NULL,NULL,NULL,0,0}
 };
+/* netcdf suboption */
+/*
+static const struct subopt_struct netcdf4_opt[]={
+        {"CF","<filename>","Add global attributes to make output netcdf files conform to the climate and forcasting convention (CF, )."
+		 "cfconventions.org.",
+                FNAME_ARG,NETCDF4_CF},
+        {NULL,NULL,NULL,0,0}
+};
+*/
+
 /* TO ADD NEW COMMAND LINE OPTION
  * If a new option requires separate description of suboptions, add a static structure here (similar to already existing
  * ones). It should contain a number of rows corresponding to different suboptions (see definition of subopt_struct
@@ -357,6 +370,7 @@ PARSE_FUNC(jagged);
 PARSE_FUNC(lambda);
 PARSE_FUNC(m);
 PARSE_FUNC(maxiter);
+PARSE_FUNC(nc4CF);
 PARSE_FUNC(no_reduced_fft);
 PARSE_FUNC(no_vol_cor);
 PARSE_FUNC(ntheta);
@@ -528,6 +542,7 @@ static struct opt_struct options[]={
 		"Default: 1.5 0",UNDEF,NULL},
 	{PAR(maxiter),"<arg>","Sets the maximum number of iterations of the iterative solver, integer.\n"
 		"Default: very large, not realistic value",1,NULL},
+	{PAR(nc4CF),"","Add CF information to output files.",0,NULL},
 	{PAR(no_reduced_fft),"","Do not use symmetry of the interaction matrix to reduce the storage space for the "
 		"Fourier-transformed matrix.",0,NULL},
 	{PAR(no_vol_cor),"","Do not use 'dpl (volume) correction'. If this option is given, ADDA will try to match size of "
@@ -1274,6 +1289,10 @@ PARSE_FUNC(maxiter)
 	ScanIntError(argv[1],&maxiter);
 	TestPositive_i(maxiter,"maximum number of iterations");
 }
+PARSE_FUNC(nc4CF)
+{
+	netcdf4_addCFheader=true;
+}
 PARSE_FUNC(no_reduced_fft)
 {
 	reduced_FFT=false;
@@ -1431,6 +1450,7 @@ PARSE_FUNC(sg_format)
 	else if (strcmp(argv[1],"text_ext")==0) sg_format=SF_TEXT_EXT;
 	else if (strcmp(argv[1],"ddscat6")==0) sg_format=SF_DDSCAT6;
 	else if (strcmp(argv[1],"ddscat7")==0) sg_format=SF_DDSCAT7;
+	else if (strcmp(argv[1],"netcdf4")==0) sg_format=SF_NETCDF4;
 	/* TO ADD NEW FORMAT OF SHAPE FILE
 	 * Based on argument of command line option '-sg_format' assign value to variable 'sg_format' (one of handles
 	 * defined in const.h).
@@ -1903,7 +1923,12 @@ void InitVariables(void)
 	symX=symY=symZ=symR=true;
 	anisotropy=false;
 	save_memory=false;
+	#ifdef NETCDF4   // change default to netcdf4
+	sg_format=SF_NETCDF4;
+	#else
 	sg_format=SF_TEXT;
+	#endif // NETCDF4
+
 	memory=0;
 	memPeak=0;
 	Ncomp=1;
