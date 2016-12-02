@@ -15,28 +15,36 @@ to compile networking code, you need to do this "the windows way" vs. using a PO
 aims to provide a POSIX layer. There are/have been some issues in MinGW regarding C++ exception
 handling (but not relevant for adda), read the docs if you experience problems. When linking to 
 external dlls (precompiled, outside the MSys2 universe), don't forget to never mix debug and 
-relase versions.
+release versions.
 
-MSsy2 is substancially improved and comes with Archlinux's package manager pacman built in, which 
+MSys2 is substancially improved and comes with Archlinux's package manager pacman built in, which 
 makes installing dependencies easy.
 
 First time running the MSys2 shell, update the database and system to the latest:
+
 pacman -Syuu  (repeat several times, until the system is up-to-date)
 
 Install dependenies and tools (if you need them):
+
 pacman -S git openssh make vim
+
 pacman -S mingw-w86-x64_64-toolchain (hit Enter ==> all)
+
 If you want to install the 32bit toolchain, side-by-side:
-pacman -S mingw-w64-i686-toolchain (hit Enter == all). Files are kept in separate
+
+pacman -S mingw-w64-i686-toolchain (hit Enter == all)
+
+Files are kept in separate
 directories, you start the different environments by selecting the respective shell 
 from Start->Msys->MSYS2 MinGW 64bit e.g. (don't forget to make clean before a new build - otherwise 
-you will be mising i686 and x86_64 code, which won't work).
+you will be mixing i686 and x86_64 code, which won't work).
 
 For the dependencies, you always need to install them for the respective toolchain (meaning twice in case 
 you are using both):
 
 pacman -S mingw-w64-x86_64-netcdf mingw-w64-i686-netcdf mingw-w64-x86_64-fftw mingw-w64-i686-fftw
-pacman -Ss pattern, searches the database.
+
+pacman -Ss pattern, searches the database of packages for 'pattern'.
 
 Nice colour code code diff tool: meld (needs quite a bit of space as it pulls in glib,python3,...)
 
