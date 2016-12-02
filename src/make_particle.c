@@ -149,7 +149,7 @@ const unsigned char HDF5header[]={0x89,0x48,0x44,0x46,0x0d,0x0a,0x1a,0x0a};
 char buf[8];
 FILE * fd;
 
-    fd=FOpenErr(fname,"r",ONE_POS);
+    fd=FOpenErr(fname,"rb",ONE_POS);
 
     if (fread(buf,1,8,fd)!=8) {
         LogError(ERR_LOC_CALL,"Could not read 8 bytes from file '%s'",fname);
