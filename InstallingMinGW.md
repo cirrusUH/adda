@@ -42,7 +42,8 @@ you will be mixing i686 and x86_64 code, which won't work).
 For the dependencies, you always need to install them for the respective toolchain (meaning twice in case 
 you are using both):
   ```
-pacman -Su mingw-w64-x86_64-netcdf mingw-w64-i686-netcdf mingw-w64-x86_64-fftw mingw-w64-i686-fftw mingw-w64-x86_64-hdf5 mingw-w64-i686-hdf5
+pacman -Su mingw-w64-x86_64-netcdf mingw-w64-x86_64-fftw
+pacman -Su mingw-w64-i686-netcdf mingw-w64-i686-fftw
 
 pacman -Ss pattern, searches the database of packages for 'pattern'.
 ```
