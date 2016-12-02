@@ -2,7 +2,7 @@
 Installing i686 (32bit) and x86_64 (64bit) gcc (6.0.1) toolchains on windows w32 or w64:
 Get the platform matching installer for the MSys2/MinGW environment here:  
 
-msys2.github.io
+https://msys2.github.io
 
 You might need to clean out older msys based installations if you previously installed 
 them, or be aware of (multiple) cygwin.dll problems. But only keep this in mind in case 
@@ -21,19 +21,19 @@ MSys2 is substancially improved and comes with Archlinux's package manager pacma
 makes installing dependencies easy.
 
 First time running the MSys2 shell, update the database and system to the latest:
-
+  ```
 pacman -Syuu  (repeat several times, until the system is up-to-date)
-
+```
 Install dependenies and tools (if you need them):
-
+  ```
 pacman -S git openssh make vim
 
 pacman -S mingw-w86-x64_64-toolchain (hit Enter ==> all)
-
+```
 If you want to install the 32bit toolchain, side-by-side:
-
+  ```
 pacman -S mingw-w64-i686-toolchain (hit Enter == all)
-
+```
 Files are kept in separate
 directories, you start the different environments by selecting the respective shell 
 from Start->Msys->MSYS2 MinGW 64bit e.g. (don't forget to make clean before a new build - otherwise 
@@ -41,11 +41,11 @@ you will be mixing i686 and x86_64 code, which won't work).
 
 For the dependencies, you always need to install them for the respective toolchain (meaning twice in case 
 you are using both):
-
+  ```
 pacman -S mingw-w64-x86_64-netcdf mingw-w64-i686-netcdf mingw-w64-x86_64-fftw mingw-w64-i686-fftw
 
 pacman -Ss pattern, searches the database of packages for 'pattern'.
-
+```
 Nice colour code code diff tool: meld (needs quite a bit of space as it pulls in glib,python3,...)
 
 In theory you are finished here, below are the previous installation instructions.
