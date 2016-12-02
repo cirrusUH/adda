@@ -26,13 +26,13 @@ pacman -Syuu  (repeat several times, until the system is up-to-date)
 ```
 Install dependenies and tools (if you need them):
   ```
-pacman -S git openssh make vim
+pacman -Su git openssh make vim
 
-pacman -S mingw-w86-x64_64-toolchain (hit Enter ==> all)
+pacman -Su mingw-w86-x64_64-toolchain (hit Enter ==> all)
 ```
 If you want to install the 32bit toolchain, side-by-side:
   ```
-pacman -S mingw-w64-i686-toolchain (hit Enter == all)
+pacman -Su mingw-w64-i686-toolchain (hit Enter == all)
 ```
 Files are kept in separate
 directories, you start the different environments by selecting the respective shell 
@@ -42,7 +42,7 @@ you will be mixing i686 and x86_64 code, which won't work).
 For the dependencies, you always need to install them for the respective toolchain (meaning twice in case 
 you are using both):
   ```
-pacman -S mingw-w64-x86_64-netcdf mingw-w64-i686-netcdf mingw-w64-x86_64-fftw mingw-w64-i686-fftw
+pacman -Su mingw-w64-x86_64-netcdf mingw-w64-i686-netcdf mingw-w64-x86_64-fftw mingw-w64-i686-fftw mingw-w64-x86_64-hdf5 mingw-w64-i686-hdf5
 
 pacman -Ss pattern, searches the database of packages for 'pattern'.
 ```
